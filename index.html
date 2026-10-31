@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="bn" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>বাংলাদেশ পুলিশ - ফোর্স রস্টার ও বিপি সার্চ</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            police: {
+              950: '#060B16',
+              900: '#0B132B',
+              800: '#1C2541',
+              700: '#2A385B',
+              600: '#3A4B7C',
+              gold: '#D4AF37',
+              goldLight: '#F3E5AB',
+              accent: '#10B981',
+              danger: '#EF4444'
+            }
+          },
+          fontFamily: {
+            sans: ['Hind Siliguri', 'Inter', 'sans-serif']
+          },
+          animation: {
+            'glow-pulse': 'glowPulse 2s infinite ease-in-out',
+            'float-up': 'floatUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+          },
+          keyframes: {
+            glowPulse: {
+              '0%, 100%': { boxShadow: '0 0 15px rgba(212, 175, 55, 0.4)' },
+              '50%': { boxShadow: '0 0 25px rgba(212, 175, 55, 0.8)' }
+            },
+            floatUp: {
+              '0%': { opacity: '0', transform: 'translateY(12px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts for Bangla -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- PDF.js Engine (2.16.105) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
+  <!-- Tesseract OCR Engine -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Hind Siliguri', sans-serif;
+      touch-action: manipulation;
+      background-color: #060B16;
+    }
+
+    /* Target Search Highlights */
+    .highlight-box {
+      position: absolute;
+      background-color: rgba(250, 204, 21, 0.45);
+      border: 1.5px solid #FACC15;
+      border-radius: 3px;
+      pointer-events: none;
+      transition: all 0.2s ease;
+      z-index: 10;
+    }
+
+    .highlight-box.active-match {
+      background-color: rgba(239, 68, 68, 0.85) !important;
+      border: 2px solid #FFFFFF !important;
+      box-shadow: 0 0 16px rgba(239, 68, 68, 0.95), 0 0 25px rgba(255, 255, 255, 0.8) !important;
+      z-index: 30;
+      transform: scale(1.06);
+      animation: targetPulse 1.2s infinite ease-in-out;
+    }
+
+    @keyframes targetPulse {
+      0%, 100% { outline: 3px solid rgba(255, 255, 255, 0.9); }
+      50% { outline: 5px solid rgba(239, 68, 68, 0.8); }
+    }
+
+    /* Container for Renders */
+    .page-card {
+      position: relative;
+      margin-bottom: 1.5rem;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      background-color: #FFFFFF;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
+      transition: transform 0.2s ease;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #060B16;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #2A385B;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #D4AF37;
+    }
+  </style>
+</head>
+<body class="bg-police-950 text-slate-100 min-h-screen flex flex-col select-none overflow-x-hidden">
+
+  <!-- Top Navigation Header -->
+  <header class="bg-police-900 border-b border-police-700/70 sticky top-0 z-40 px-3 sm:px-6 py-2.5 shadow-xl backdrop-blur-md">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-2">
+      
+      <!-- BD Police Logo & Title -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-full bg-police-800 border-2 border-police-gold flex items-center justify-center text-police-gold shadow-lg flex-shrink-0">
+          <i class="fa-solid fa-shield-halved text-xl"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="font-bold text-base sm:text-lg text-white leading-tight">বাংলাদেশ পুলিশ</h1>
+            <span class="bg-police-gold/20 text-police-gold text-[10px] px-2 py-0.5 rounded border border-police-gold/40 font-semibold tracking-wider">রস্টার সার্চার</span>
+          </div>
+          <p class="text-[11px] text-slate-300">ফোর্স তথ্য, বিপি ও মোবাইল নম্বর অনুসন্ধানের টুল</p>
+        </div>
+      </div>
+
+      <!-- Action Buttons: Photo & PDF Upload -->
+      <div class="flex items-center space-x-2">
+        <!-- Button 1: Photo Upload -->
+        <label for="imageFileInput" class="cursor-pointer bg-police-800 hover:bg-police-700 text-police-gold border border-police-gold/60 font-semibold px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs flex items-center space-x-1.5 shadow-md active:scale-95 transition">
+          <i class="fa-solid fa-image text-sm"></i>
+          <span class="hidden sm:inline">ছবি আপলোড</span>
+          <span class="sm:hidden">ছবি</span>
+        </label>
+        <input type="file" id="imageFileInput" accept="image/png,image/jpeg,image/jpg" class="hidden">
+
+        <!-- Button 2: PDF Upload -->
+        <label for="pdfFileInput" class="cursor-pointer bg-gradient-to-r from-police-gold to-amber-600 hover:from-amber-400 hover:to-yellow-600 text-police-950 font-bold px-3 sm:px-4 py-1.5 rounded-xl text-xs sm:text-sm flex items-center space-x-1.5 shadow-lg active:scale-95 transition">
+          <i class="fa-solid fa-file-pdf text-sm"></i>
+          <span class="hidden sm:inline">পিডিএফ আপলোড</span>
+          <span class="sm:hidden">পিডিএফ</span>
+        </label>
+        <input type="file" id="pdfFileInput" accept="application/pdf" class="hidden">
+
+        <!-- Sidebar Toggle (Mobile) -->
+        <button id="sidebarToggleBtn" class="md:hidden p-2 bg-police-800 border border-police-700 rounded-lg text-slate-200">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Quick Filter Presets -->
+  <div id="quickFilterBar" class="bg-police-900/90 border-b border-police-800 px-3 py-2 flex items-center space-x-2 overflow-x-auto text-xs hidden">
+    <span class="text-slate-400 font-medium text-[11px] whitespace-nowrap pl-1">
+      <i class="fa-solid fa-bolt text-police-gold mr-1"></i>দ্রুত ফিল্টার:
+    </span>
+    <button onclick="applyQuickFilter('bp')" class="bg-police-800 hover:bg-police-700 border border-police-600 text-police-gold font-medium px-2.5 py-1 rounded-md whitespace-nowrap flex items-center space-x-1">
+      <i class="fa-solid fa-id-badge text-[10px]"></i>
+      <span>বিপি নম্বর (BP)</span>
+    </button>
+    <button onclick="applyQuickFilter('mobile')" class="bg-police-800 hover:bg-police-700 border border-police-600 text-emerald-400 font-medium px-2.5 py-1 rounded-md whitespace-nowrap flex items-center space-x-1">
+      <i class="fa-solid fa-phone text-[10px]"></i>
+      <span>মোবাইল (01...)</span>
+    </button>
+    <button onclick="applyQuickFilter('constable')" class="bg-police-800 hover:bg-police-700 border border-police-600 text-sky-400 font-medium px-2.5 py-1 rounded-md whitespace-nowrap flex items-center space-x-1">
+      <i class="fa-solid fa-user-shield text-[10px]"></i>
+      <span>কনস্টেবল</span>
+    </button>
+    <button onclick="applyQuickFilter('asi')" class="bg-police-800 hover:bg-police-700 border border-police-600 text-amber-300 font-medium px-2.5 py-1 rounded-md whitespace-nowrap flex items-center space-x-1">
+      <i class="fa-solid fa-user-check text-[10px]"></i>
+      <span>এএসআই/এসআই</span>
+    </button>
+  </div>
+
+  <!-- Main View Area -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- Left Page Navigator Sidebar -->
+    <aside id="sidebar" class="w-60 bg-police-900 border-r border-police-800 flex-col flex-shrink-0 z-30 hidden md:flex transition-all duration-300">
+      <div class="p-3 border-b border-police-800 bg-police-950/40">
+        <div class="flex items-center justify-between text-xs mb-1">
+          <span class="text-slate-400">ডকুমেন্ট তথ্য</span>
+          <span id="pageCountBadge" class="bg-police-800 text-police-gold border border-police-gold/30 px-2 py-0.5 rounded-full font-mono text-[10px]">০ পেজ</span>
+        </div>
+        <p id="fileNameDisplay" class="font-medium text-xs text-slate-200 truncate">ফাইল সিলেক্ট করা হয়নি</p>
+        <p id="fileSizeDisplay" class="text-[10px] text-slate-400">PDF বা ছবি আপলোড করুন</p>
+      </div>
+
+      <div class="p-2 font-semibold text-[11px] text-slate-400 uppercase tracking-wider flex items-center justify-between">
+        <span>পেজ স্ক্রোল সূচী</span>
+        <i class="fa-solid fa-list-ol text-slate-500"></i>
+      </div>
+      
+      <div id="pageNavList" class="flex-1 overflow-y-auto p-2 space-y-2">
+        <div class="text-center py-12 text-slate-500 text-xs">
+          <i class="fa-solid fa-folder-open text-3xl mb-2 block text-police-700"></i>
+          ফাইল আপলোড করলে পেজের লিস্ট দেখাবে
+        </div>
+      </div>
+
+      <!-- Zoom Controls -->
+      <div class="p-3 border-t border-police-800 flex items-center justify-between bg-police-950/40">
+        <span class="text-xs text-slate-400">জুম</span>
+        <div class="flex items-center space-x-1 bg-police-800 rounded-lg p-1 border border-police-700">
+          <button id="zoomOutBtn" class="px-2 py-0.5 text-xs hover:bg-police-700 rounded text-slate-200"><i class="fa-solid fa-minus"></i></button>
+          <span id="zoomVal" class="text-xs px-1 font-mono text-police-gold font-bold">100%</span>
+          <button id="zoomInBtn" class="px-2 py-0.5 text-xs hover:bg-police-700 rounded text-slate-200"><i class="fa-solid fa-plus"></i></button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Canvas Area (Continuous Vertical Scroll) -->
+    <main class="flex-1 overflow-auto bg-police-950 p-2 sm:p-6 flex flex-col items-center justify-start relative" id="viewerContainer">
+
+      <!-- Initial Welcome & Drop Zone -->
+      <div id="dropZone" class="my-auto max-w-md w-full border-2 border-dashed border-police-gold/40 rounded-2xl p-6 sm:p-8 text-center bg-police-900/90 shadow-2xl hover:border-police-gold transition group animate-glow-pulse">
+        <div class="w-16 h-16 bg-police-800 border-2 border-police-gold text-police-gold rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition duration-300 shadow-xl">
+          <i class="fa-solid fa-shield-cat text-3xl"></i>
+        </div>
+        <h2 class="text-base sm:text-lg font-bold text-white mb-1">ডিউটি রস্টার বা ফাইল আপলোড করুন</h2>
+        <p class="text-xs text-slate-300 mb-6 leading-relaxed">
+          উপরের <span class="text-police-gold font-semibold">"ছবি আপলোড"</span> বা <span class="text-police-gold font-semibold">"পিডিএফ আপলোড"</span> বাটনে চাপ দিন অথবা ফাইল টেনে আনুন।
+        </p>
+
+        <div class="flex items-center justify-center gap-3">
+          <button onclick="document.getElementById('imageFileInput').click()" class="bg-police-800 hover:bg-police-700 text-police-gold border border-police-gold/50 px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-2">
+            <i class="fa-solid fa-image"></i>
+            <span>ছবি বেছে নিন</span>
+          </button>
+          <button onclick="document.getElementById('pdfFileInput').click()" class="bg-gradient-to-r from-police-gold to-amber-600 text-police-950 px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-2">
+            <i class="fa-solid fa-file-pdf"></i>
+            <span>পিডিএফ বেছে নিন</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Processing Loading Screen -->
+      <div id="statusOverlay" class="hidden fixed inset-0 bg-police-950/85 backdrop-blur-md z-50 flex flex-col items-center justify-center text-white p-4">
+        <div class="w-14 h-14 border-4 border-police-700 border-t-police-gold rounded-full animate-spin mb-4"></div>
+        <h3 id="statusMessage" class="text-base font-bold text-police-gold mb-1">প্রসেস করা হচ্ছে...</h3>
+        <p id="statusSubMessage" class="text-xs text-slate-300 mb-4 text-center">অনুগ্রহ করে অপেক্ষা করুন</p>
+        <div class="w-60 bg-police-800 rounded-full h-2 overflow-hidden border border-police-700">
+          <div id="progressBar" class="bg-gradient-to-r from-police-gold to-yellow-400 h-full w-0 transition-all duration-200"></div>
+        </div>
+      </div>
+
+      <!-- RENDERED PAGES INJECTED HERE (CONTINUOUS VERTICAL SCROLL) -->
+      <div id="pagesRenderArea" class="w-full flex flex-col items-center">
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Bottom Floating Interactive Search Controller -->
+  <div id="floatingSearchBar" class="bg-police-900/95 border-t border-police-700 p-2.5 sm:p-3 sticky bottom-0 z-40 shadow-2xl backdrop-blur-lg">
+    <div class="max-w-3xl mx-auto flex flex-col sm:flex-row items-center gap-2">
+
+      <!-- Search Field Input -->
+      <div class="relative w-full flex-1">
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-police-gold">
+          <i class="fa-solid fa-magnifying-glass"></i>
+        </div>
+        <input 
+          type="text" 
+          id="searchInput" 
+          placeholder="বিপি নম্বর, ফোন বা নাম দিয়ে খুঁজুন (যেমন: 10217 / ১০২১৭)..." 
+          class="w-full pl-9 pr-24 py-2.5 bg-police-950/90 border border-police-700 rounded-xl text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-police-gold transition shadow-inner"
+        />
+        <!-- Counter Badge -->
+        <div class="absolute inset-y-0 right-0 pr-3 flex items-center text-[11px] font-bold text-police-gold font-mono">
+          <span id="matchCounter">০/০</span>
+        </div>
+      </div>
+
+      <!-- Search Controllers: Next / Prev / Clear -->
+      <div class="flex items-center justify-between w-full sm:w-auto space-x-1.5">
+        <div class="flex items-center space-x-1">
+          <button id="prevMatchBtn" disabled title="আগের রেজাল্ট" class="px-3 py-2 bg-police-800 hover:bg-police-700 disabled:opacity-40 rounded-xl text-slate-200 border border-police-700 active:scale-95 transition text-xs flex items-center space-x-1">
+            <i class="fa-solid fa-chevron-up"></i>
+            <span class="sm:hidden">আগে</span>
+          </button>
+          <button id="nextMatchBtn" disabled title="পরের রেজাল্ট" class="px-3 py-2 bg-police-800 hover:bg-police-700 disabled:opacity-40 rounded-xl text-slate-200 border border-police-700 active:scale-95 transition text-xs flex items-center space-x-1">
+            <i class="fa-solid fa-chevron-down"></i>
+            <span class="sm:hidden">পরে</span>
+          </button>
+        </div>
+
+        <button id="clearSearchBtn" title="ক্লিয়ার করুন" class="p-2 bg-police-800/80 hover:bg-police-700 rounded-xl text-slate-300 hover:text-white border border-police-700 transition">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // PDF.js Worker Configuration
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    }
+
+    // Application State Management
+    const state = {
+      file: null,
+      fileType: null,
+      pdfDoc: null,
+      pagesData: [], // Array of { pageNum, width, height, textItems: [{ text, bbox }] }
+      searchResults: [],
+      currentMatchIndex: -1,
+      zoomScale: 1.0
+    };
+
+    // DOM Elements
+    const pdfFileInput = document.getElementById('pdfFileInput');
+    const imageFileInput = document.getElementById('imageFileInput');
+    const dropZone = document.getElementById('dropZone');
+    const pagesRenderArea = document.getElementById('pagesRenderArea');
+    const searchInput = document.getElementById('searchInput');
+    const matchCounter = document.getElementById('matchCounter');
+    const prevMatchBtn = document.getElementById('prevMatchBtn');
+    const nextMatchBtn = document.getElementById('nextMatchBtn');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    const statusOverlay = document.getElementById('statusOverlay');
+    const statusMessage = document.getElementById('statusMessage');
+    const statusSubMessage = document.getElementById('statusSubMessage');
+    const progressBar = document.getElementById('progressBar');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    const fileSizeDisplay = document.getElementById('fileSizeDisplay');
+    const pageCountBadge = document.getElementById('pageCountBadge');
+    const pageNavList = document.getElementById('pageNavList');
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    const zoomVal = document.getElementById('zoomVal');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+    const quickFilterBar = document.getElementById('quickFilterBar');
+
+    // Number Normalizers (Bengali <-> English)
+    function normalizeDigits(str) {
+      if (!str) return '';
+      const banglaDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+      return str.replace(/[০-৯]/g, d => banglaDigits.indexOf(d));
+    }
+
+    function toBanglaDigits(numStr) {
+      const banglaDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+      return String(numStr).replace(/[0-9]/g, d => banglaDigits[d]);
+    }
+
+    // Setup Event Handlers
+    window.addEventListener('DOMContentLoaded', () => {
+      pdfFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) handleUploadedFile(e.target.files[0], 'pdf');
+      });
+
+      imageFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) handleUploadedFile(e.target.files[0], 'image');
+      });
+
+      const viewerContainer = document.getElementById('viewerContainer');
+      viewerContainer.addEventListener('dragover', (e) => { e.preventDefault(); });
+      viewerContainer.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          const file = e.dataTransfer.files[0];
+          const type = file.type === 'application/pdf' ? 'pdf' : 'image';
+          handleUploadedFile(file, type);
+        }
+      });
+
+      searchInput.addEventListener('input', debounce(performSearch, 150));
+      searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          if (e.shiftKey) navigateMatches(-1);
+          else navigateMatches(1);
+        }
+      });
+
+      prevMatchBtn.addEventListener('click', () => navigateMatches(-1));
+      nextMatchBtn.addEventListener('click', () => navigateMatches(1));
+      clearSearchBtn.addEventListener('click', clearSearch);
+
+      zoomInBtn.addEventListener('click', () => adjustZoom(0.15));
+      zoomOutBtn.addEventListener('click', () => adjustZoom(-0.15));
+
+      sidebarToggleBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('hidden');
+      });
+    });
+
+    // File Processing Main Function
+    async function handleUploadedFile(file, overrideType) {
+      state.file = file;
+      state.fileType = overrideType;
+      state.pagesData = [];
+      state.searchResults = [];
+      state.currentMatchIndex = -1;
+      
+      pagesRenderArea.innerHTML = '';
+      pageNavList.innerHTML = '';
+      dropZone.classList.add('hidden');
+      quickFilterBar.classList.remove('hidden');
+
+      fileNameDisplay.textContent = file.name;
+      fileSizeDisplay.textContent = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+
+      if (overrideType === 'pdf') {
+        await processPdfFile(file);
+      } else {
+        await processImageFile(file);
+      }
+    }
+
+    // Process PDF Document
+    async function processPdfFile(file) {
+      showStatus('পিডিএফ প্রসেস করা হচ্ছে...', 'ফাইল পেজ রেন্ডার করা হচ্ছে', 10);
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        state.pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const totalPages = state.pdfDoc.numPages;
+        pageCountBadge.textContent = `${toBanglaDigits(totalPages)} পেজ`;
+
+        for (let i = 1; i <= totalPages; i++) {
+          showStatus(`পেজ ${toBanglaDigits(i)} / ${toBanglaDigits(totalPages)} রেন্ডার হচ্ছে...`, '', Math.round((i / totalPages) * 100));
+          await renderPdfPage(i);
+        }
+
+        hideStatus();
+        buildPageNavList(totalPages);
+        if (searchInput.value.trim()) performSearch();
+      } catch (err) {
+        console.error(err);
+        showStatus('PDF লোড করতে সমস্যা হয়েছে', err.message, 0);
+        setTimeout(hideStatus, 3000);
+      }
+    }
+
+    async function renderPdfPage(pageNum) {
+      const page = await state.pdfDoc.getPage(pageNum);
+      const viewport = page.getViewport({ scale: state.zoomScale * 1.35 });
+
+      const pageCard = document.createElement('div');
+      pageCard.className = 'page-card animate-float-up';
+      pageCard.id = `page-card-${pageNum}`;
+      pageCard.style.width = `${viewport.width}px`;
+      pageCard.style.height = `${viewport.height}px`;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+
+      pageCard.appendChild(canvas);
+
+      const highlightLayer = document.createElement('div');
+      highlightLayer.className = 'highlight-layer absolute inset-0 pointer-events-none';
+      highlightLayer.id = `highlight-layer-${pageNum}`;
+      pageCard.appendChild(highlightLayer);
+
+      pagesRenderArea.appendChild(pageCard);
+
+      await page.render({ canvasContext: ctx, viewport }).promise;
+
+      // Extract Text Position Bounding Boxes
+      const textContent = await page.getTextContent();
+      const textItems = [];
+
+      textContent.items.forEach(item => {
+        if (!item.str.trim()) return;
+        const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+        const fontHeight = Math.sqrt(tx[2] * tx[2] + tx[3] * tx[3]);
+
+        textItems.push({
+          text: item.str,
+          bbox: {
+            x: tx[4],
+            y: tx[5] - fontHeight,
+            w: item.width * (viewport.width / page.getViewport({ scale: 1 }).width),
+            h: fontHeight * 1.15
+          }
+        });
+      });
+
+      state.pagesData.push({ pageNum, width: viewport.width, height: viewport.height, textItems });
+    }
+
+    // Process Image Document using Tesseract OCR
+    async function processImageFile(file) {
+      showStatus('ছবি স্ক্যান করা হচ্ছে...', 'বাংলা ও ইংরেজি ওসিআর (OCR) প্রসেস হচ্ছে', 20);
+      pageCountBadge.textContent = '১ পেজ';
+
+      const imgUrl = URL.createObjectURL(file);
+      const img = new Image();
+
+      img.onload = async () => {
+        const containerWidth = Math.min(window.innerWidth - 32, 850) * state.zoomScale;
+        const scaleFactor = containerWidth / img.width;
+        const containerHeight = img.height * scaleFactor;
+
+        const pageCard = document.createElement('div');
+        pageCard.className = 'page-card animate-float-up';
+        pageCard.id = 'page-card-1';
+        pageCard.style.width = `${containerWidth}px`;
+        pageCard.style.height = `${containerHeight}px`;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = containerWidth;
+        canvas.height = containerHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, containerWidth, containerHeight);
+        pageCard.appendChild(canvas);
+
+        const highlightLayer = document.createElement('div');
+        highlightLayer.className = 'highlight-layer absolute inset-0 pointer-events-none';
+        highlightLayer.id = 'highlight-layer-1';
+        pageCard.appendChild(highlightLayer);
+
+        pagesRenderArea.appendChild(pageCard);
+
+        try {
+          const worker = await Tesseract.createWorker('eng+ben');
+          showStatus('টেক্সট চিহ্নিত করা হচ্ছে...', 'শব্দ অবস্থান প্রসেস হচ্ছে', 65);
+          
+          const ret = await worker.recognize(file);
+          await worker.terminate();
+
+          const textItems = [];
+          if (ret.data && ret.data.words) {
+            ret.data.words.forEach(word => {
+              textItems.push({
+                text: word.text,
+                bbox: {
+                  x: word.bbox.x0 * scaleFactor,
+                  y: word.bbox.y0 * scaleFactor,
+                  w: (word.bbox.x1 - word.bbox.x0) * scaleFactor,
+                  h: (word.bbox.y1 - word.bbox.y0) * scaleFactor
+                }
+              });
+            });
+          }
+
+          state.pagesData.push({ pageNum: 1, width: containerWidth, height: containerHeight, textItems });
+          hideStatus();
+          buildPageNavList(1);
+          if (searchInput.value.trim()) performSearch();
+        } catch (err) {
+          console.error(err);
+          showStatus('OCR প্রসেস করা যায়নি', err.message, 0);
+          setTimeout(hideStatus, 3000);
+        }
+      };
+
+      img.src = imgUrl;
+    }
+
+    // Dynamic Search Engine & Highlight Auto-Scroll
+    function performSearch() {
+      const rawQuery = searchInput.value.trim();
+      clearHighlights();
+
+      if (!rawQuery || state.pagesData.length === 0) {
+        matchCounter.textContent = '০/০';
+        prevMatchBtn.disabled = true;
+        nextMatchBtn.disabled = true;
+        state.searchResults = [];
+        state.currentMatchIndex = -1;
+        return;
+      }
+
+      const normalizedQuery = normalizeDigits(rawQuery).toLowerCase();
+      const results = [];
+
+      state.pagesData.forEach(page => {
+        const highlightLayer = document.getElementById(`highlight-layer-${page.pageNum}`);
+        if (!highlightLayer) return;
+
+        page.textItems.forEach(item => {
+          const normalizedItemText = normalizeDigits(item.text).toLowerCase();
+
+          if (normalizedItemText.includes(normalizedQuery)) {
+            const box = document.createElement('div');
+            box.className = 'highlight-box';
+            box.style.left = `${item.bbox.x}px`;
+            box.style.top = `${item.bbox.y}px`;
+            box.style.width = `${item.bbox.w}px`;
+            box.style.height = `${item.bbox.h}px`;
+
+            highlightLayer.appendChild(box);
+
+            results.push({
+              pageNum: page.pageNum,
+              bbox: item.bbox,
+              element: box
+            });
+          }
+        });
+      });
+
+      state.searchResults = results;
+
+      if (results.length > 0) {
+        state.currentMatchIndex = 0;
+        updateMatchAndAutoScroll();
+      } else {
+        matchCounter.textContent = '০টি মিল পাওয়া গেছে';
+        prevMatchBtn.disabled = true;
+        nextMatchBtn.disabled = true;
+      }
+    }
+
+    // Auto-Scroll to Target Highlight
+    function updateMatchAndAutoScroll() {
+      state.searchResults.forEach(r => r.element.classList.remove('active-match'));
+
+      const active = state.searchResults[state.currentMatchIndex];
+      if (!active) return;
+
+      active.element.classList.add('active-match');
+
+      const totalBn = toBanglaDigits(state.searchResults.length);
+      const currentBn = toBanglaDigits(state.currentMatchIndex + 1);
+      matchCounter.textContent = `${currentBn} / ${totalBn}টি`;
+
+      prevMatchBtn.disabled = false;
+      nextMatchBtn.disabled = false;
+
+      // Smooth Auto-Scroll Viewport Alignment
+      active.element.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'nearest'
+      });
+    }
+
+    function navigateMatches(dir) {
+      if (state.searchResults.length === 0) return;
+      state.currentMatchIndex += dir;
+
+      if (state.currentMatchIndex >= state.searchResults.length) {
+        state.currentMatchIndex = 0;
+      } else if (state.currentMatchIndex < 0) {
+        state.currentMatchIndex = state.searchResults.length - 1;
+      }
+
+      updateMatchAndAutoScroll();
+    }
+
+    function clearHighlights() {
+      document.querySelectorAll('.highlight-layer').forEach(layer => layer.innerHTML = '');
+    }
+
+    function clearSearch() {
+      searchInput.value = '';
+      performSearch();
+      searchInput.focus();
+    }
+
+    function applyQuickFilter(type) {
+      if (type === 'bp') searchInput.value = 'BP';
+      else if (type === 'mobile') searchInput.value = '01';
+      else if (type === 'constable') searchInput.value = 'কনস্টেবল';
+      else if (type === 'asi') searchInput.value = 'এএসআই';
+      
+      performSearch();
+      searchInput.focus();
+    }
+
+    // Helper Functions
+    function showStatus(msg, subMsg = '', progress = 0) {
+      statusMessage.textContent = msg;
+      statusSubMessage.textContent = subMsg;
+      progressBar.style.width = `${progress}%`;
+      statusOverlay.classList.remove('hidden');
+    }
+
+    function hideStatus() {
+      statusOverlay.classList.add('hidden');
+    }
+
+    function adjustZoom(delta) {
+      const newScale = Math.max(0.6, Math.min(2.0, state.zoomScale + delta));
+      if (newScale !== state.zoomScale) {
+        state.zoomScale = newScale;
+        zoomVal.textContent = `${Math.round(state.zoomScale * 100)}%`;
+        if (state.file) handleUploadedFile(state.file, state.fileType);
+      }
+    }
+
+    function buildPageNavList(total) {
+      pageNavList.innerHTML = '';
+      for (let i = 1; i <= total; i++) {
+        const item = document.createElement('div');
+        item.className = 'p-2 rounded-xl border border-police-800 bg-police-950/60 hover:bg-police-800 cursor-pointer text-xs font-medium flex items-center justify-between text-slate-200 transition';
+        item.innerHTML = `
+          <span class="flex items-center space-x-2">
+            <i class="fa-solid fa-file-lines text-police-gold"></i>
+            <span>পেজ নম্বর ${toBanglaDigits(i)}</span>
+          </span>
+          <i class="fa-solid fa-arrow-right text-[10px] text-slate-500"></i>
+        `;
+        item.onclick = () => {
+          const el = document.getElementById(`page-card-${i}`);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+        pageNavList.appendChild(item);
+      }
+    }
+
+    function debounce(func, wait) {
+      let timeout;
+      return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    }
+  </script>
+</body>
+</html>
